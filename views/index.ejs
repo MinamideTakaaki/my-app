@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><title>ユーザー名簿</title></head>
+<body>
+  <h1>ユーザー一覧</h1>
+  <ul>
+    <% users.forEach(user => { %>
+      <li><%= user.name %> (ID: <%= user.id %>)</li>
+    <% }) %>
+  </ul>
+
+  <h2>ユーザーを追加するぞ</h2>
+  <form action="/users" method="post">
+    <input type="text" name="name" placeholder="名前を入力" required>
+    <button type="submit">追加</button>
+  </form>
+</body>
+</html>
