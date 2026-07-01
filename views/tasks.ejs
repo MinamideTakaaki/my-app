@@ -92,6 +92,22 @@
     <button type="submit">追加</button>
   </form>
 
+  <h2>KLMS連携</h2>
+  <% if (klmsStatus === "connecting") { %>
+    <p>ブラウザでログインを完了してください…（完了後にページを再読み込みしてください）</p>
+  <% } else if (klmsStatus === "error") { %>
+    <p style="color:red">連携に失敗しました。もう一度お試しください。</p>
+  <% } %>
+  <% if (klmsConnected) { %>
+    <p>連携済みです。</p>
+    <form action="/integrations/klms/sync" method="post" style="display:inline">
+      <button type="submit">課題を同期</button>
+    </form>
+  <% } %>
+  <form action="/integrations/klms/connect" method="post" style="display:inline">
+    <button type="submit"><%= klmsConnected ? "KLMSに再ログイン" : "KLMSと連携する" %></button>
+  </form>
+
   <form action="/logout" method="post">
     <button type="submit">ログアウト</button>
   </form>

@@ -5,6 +5,7 @@ import bcrypt from "bcrypt";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, RecurrenceType } from "@prisma/client";
+import { connectKlms, fetchKlmsAssignments, hasKlmsSession } from "./klms.ts";
 
 declare module "express-session" {
   interface SessionData {
@@ -123,6 +124,8 @@ function parseCategoryIds(body: express.Request["body"]) {
   return ([] as string[]).concat(body.categoryIds ?? []).map(Number);
 }
 
+const klmsStatus = new Map<number, "connecting" | "connected" | "error">();
+
 app.get("/", (req, res) => {
   res.redirect(req.session.userId ? "/tasks" : "/login");
 });
@@ -188,6 +191,8 @@ app.post("/account/delete", requireLogin, async (req, res) => {
       categoryTree: buildCategoryTree(categories),
       categoryColors: buildCategoryColors(categories),
       error: "パスワードが違います",
+      klmsConnected: hasKlmsSession(req.session.userId!),
+      klmsStatus: klmsStatus.get(req.session.userId!) ?? null,
     });
     return;
   }
@@ -213,7 +218,47 @@ app.get("/tasks", requireLogin, async (req, res) => {
     categoryTree: buildCategoryTree(categories),
     categoryColors: buildCategoryColors(categories),
     error: null,
+    klmsConnected: hasKlmsSession(req.session.userId!),
+    klmsStatus: klmsStatus.get(req.session.userId!) ?? null,
   });
+});
+
+app.post("/integrations/klms/connect", requireLogin, (req, res) => {
+  const userId = req.session.userId!;
+  klmsStatus.set(userId, "connecting");
+  connectKlms(userId)
+    .then(async () => {
+      await prisma.user.update({ where: { id: userId }, data: { klmsConnectedAt: new Date() } });
+      klmsStatus.set(userId, "connected");
+    })
+    .catch((error) => {
+      console.error("KLMS連携に失敗しました:", error);
+      klmsStatus.set(userId, "error");
+    });
+  res.redirect("/tasks");
+});
+
+app.post("/integrations/klms/sync", requireLogin, async (req, res) => {
+  const userId = req.session.userId!;
+  if (!hasKlmsSession(userId)) {
+    res.redirect("/tasks");
+    return;
+  }
+
+  const assignments = await fetchKlmsAssignments(userId);
+  for (const assignment of assignments) {
+    await prisma.task.upsert({
+      where: { userId_klmsId: { userId, klmsId: assignment.klmsId } },
+      update: { title: assignment.title, dueDate: assignment.dueDate },
+      create: {
+        title: assignment.title,
+        dueDate: assignment.dueDate,
+        userId,
+        klmsId: assignment.klmsId,
+      },
+    });
+  }
+  res.redirect("/tasks");
 });
 
 app.post("/tasks", requireLogin, async (req, res) => {
