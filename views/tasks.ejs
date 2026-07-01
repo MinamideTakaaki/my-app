@@ -6,12 +6,55 @@
   <ul>
     <% tasks.forEach(task => { %>
       <li>
-        <form action="/tasks/<%= task.id %>/toggle" method="post" style="display:inline">
-          <input type="checkbox" onchange="this.form.submit()" <%= task.done ? "checked" : "" %>>
-        </form>
-        <span style="<%= task.done ? 'text-decoration: line-through;' : '' %>"><%= task.title %></span>
-        <form action="/tasks/<%= task.id %>/delete" method="post" style="display:inline">
-          <button type="submit">削除</button>
+        <div id="view-<%= task.id %>">
+          <form action="/tasks/<%= task.id %>/toggle" method="post" style="display:inline">
+            <input type="checkbox" onchange="this.form.submit()" <%= task.done ? "checked" : "" %>>
+          </form>
+          <span style="<%= task.done ? 'text-decoration: line-through;' : '' %>"><%= task.title %></span>
+          <% if (task.dueDate) { %>
+            <small>期限: <%= task.dueDate.toLocaleString("ja-JP") %></small>
+          <% } %>
+          <% task.categories.forEach(category => { %>
+            <small>
+              <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:<%= categoryColors[category.id] %>"></span>
+              <%= category.name %>
+            </small>
+          <% }) %>
+          <% if (task.recurrenceType === "DAILY") { %>
+            <small>(毎日)</small>
+          <% } else if (task.recurrenceType === "WEEKLY") { %>
+            <small>(毎週 <%= task.recurrenceDaysOfWeek.map(d => ["日","月","火","水","木","金","土"][d]).join("・") %>)</small>
+          <% } else if (task.recurrenceType === "MONTHLY") { %>
+            <small>(毎月<%= task.recurrenceDayOfMonth %>日)</small>
+          <% } %>
+          <button type="button" onclick="toggleEdit(<%= task.id %>)">編集</button>
+          <form action="/tasks/<%= task.id %>/delete" method="post" style="display:inline">
+            <button type="submit">削除</button>
+          </form>
+        </div>
+
+        <form id="edit-<%= task.id %>" action="/tasks/<%= task.id %>/edit" method="post" style="display:none">
+          <input type="text" name="title" value="<%= task.title %>" required>
+          <input
+            type="datetime-local"
+            name="dueDate"
+            value="<%= task.dueDate ? task.dueDate.toISOString().slice(0, 16) : '' %>"
+          >
+          <%- include('_category_picker', {
+            formId: "edit-" + task.id,
+            categoryTree,
+            categoryColors,
+            selectedIds: task.categories.map(c => c.id),
+            selectedCategories: task.categories,
+          }) %>
+          <%- include('_recurrence_fields', {
+            id: "edit-" + task.id,
+            recurrenceType: task.recurrenceType,
+            recurrenceDaysOfWeek: task.recurrenceDaysOfWeek,
+            recurrenceDayOfMonth: task.recurrenceDayOfMonth,
+          }) %>
+          <button type="submit">保存</button>
+          <button type="button" onclick="toggleEdit(<%= task.id %>)">キャンセル</button>
         </form>
       </li>
     <% }) %>
@@ -20,11 +63,83 @@
   <h2>タスクを追加する</h2>
   <form action="/tasks" method="post">
     <input type="text" name="title" placeholder="タスク内容を入力" required>
+    <input type="datetime-local" name="dueDate">
+    <%- include('_category_picker', {
+      formId: "add",
+      categoryTree,
+      categoryColors,
+      selectedIds: [],
+      selectedCategories: [],
+    }) %>
+    <%- include('_recurrence_fields', {
+      id: "add",
+      recurrenceType: "NONE",
+      recurrenceDaysOfWeek: [],
+      recurrenceDayOfMonth: null,
+    }) %>
+    <button type="submit">追加</button>
+  </form>
+
+  <h2>カテゴリを追加する</h2>
+  <form action="/categories" method="post">
+    <input type="text" name="name" placeholder="カテゴリ名" required>
+    <select name="parentId">
+      <option value="">親カテゴリなし</option>
+      <% categories.forEach(category => { %>
+        <option value="<%= category.id %>"><%= "　".repeat(category.depth) %><%= category.name %></option>
+      <% }) %>
+    </select>
     <button type="submit">追加</button>
   </form>
 
   <form action="/logout" method="post">
     <button type="submit">ログアウト</button>
   </form>
+
+  <h2>アカウント削除</h2>
+  <% if (error) { %>
+    <p style="color:red"><%= error %></p>
+  <% } %>
+  <form action="/account/delete" method="post" onsubmit="return confirm('本当にアカウントを削除しますか？タスクも全て削除されます。')">
+    <input type="password" name="password" placeholder="確認のためパスワードを入力" required>
+    <button type="submit">アカウントを削除する</button>
+  </form>
+
+  <script>
+    function toggleEdit(id) {
+      const view = document.getElementById("view-" + id);
+      const edit = document.getElementById("edit-" + id);
+      const isEditing = edit.style.display !== "none";
+      view.style.display = isEditing ? "" : "none";
+      edit.style.display = isEditing ? "none" : "";
+    }
+
+    function toggleCategoryChildren(button) {
+      const childContainer = button.parentElement.querySelector(":scope > div");
+      const isHidden = childContainer.style.display === "none";
+      childContainer.style.display = isHidden ? "" : "none";
+      button.textContent = isHidden ? "▼" : "▶";
+    }
+
+    function closeCategoryPicker(formId) {
+      const dialog = document.getElementById("cat-dialog-" + formId);
+      const checked = [...dialog.querySelectorAll('input[name="categoryIds"]:checked')];
+      const chips = checked.map((input) => {
+        const name = input.parentElement.textContent.trim();
+        const color = input.dataset.color;
+        return `<small><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color}"></span> ${name}</small>`;
+      });
+      document.getElementById("cat-count-" + formId).textContent = checked.length;
+      document.getElementById("cat-chips-" + formId).innerHTML = chips.join("");
+      dialog.close();
+    }
+
+    function updateRecurrenceFields(id) {
+      const container = document.querySelector('.recurrence-fields[data-id="' + id + '"]');
+      const type = container.querySelector('select[name="recurrenceType"]').value;
+      container.querySelector(".weekly-days-" + id).style.display = type === "WEEKLY" ? "" : "none";
+      container.querySelector(".monthly-day-" + id).style.display = type === "MONTHLY" ? "" : "none";
+    }
+  </script>
 </body>
 </html>

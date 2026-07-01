@@ -1,0 +1,21 @@
+<%
+// locals: formId, categoryTree, selectedIds (number[]), selectedCategories ({id, name}[]), categoryColors (Record<number, string>)
+%>
+<span class="category-picker">
+  <button type="button" onclick="document.getElementById('cat-dialog-<%= formId %>').showModal()">
+    カテゴリを選択 (<span id="cat-count-<%= formId %>"><%= selectedCategories.length %></span>)
+  </button>
+  <span id="cat-chips-<%= formId %>">
+    <% selectedCategories.forEach(category => { %>
+      <small>
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:<%= categoryColors[category.id] %>"></span>
+        <%= category.name %>
+      </small>
+    <% }) %>
+  </span>
+
+  <dialog id="cat-dialog-<%= formId %>">
+    <%- include('_category_tree_node', { nodes: categoryTree, selectedIds, categoryColors }) %>
+    <button type="button" onclick="closeCategoryPicker('<%= formId %>')">決定</button>
+  </dialog>
+</span>

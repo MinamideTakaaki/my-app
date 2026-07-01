@@ -1,0 +1,28 @@
+<%
+// locals: nodes (CategoryNode[]), selectedIds (number[]), categoryColors (Record<number, string>)
+%>
+<ul style="list-style:none">
+  <% nodes.forEach(node => { %>
+    <li>
+      <% if (node.children.length > 0) { %>
+        <button type="button" onclick="toggleCategoryChildren(this)">▶</button>
+      <% } %>
+      <label>
+        <input
+          type="checkbox"
+          name="categoryIds"
+          value="<%= node.id %>"
+          data-color="<%= categoryColors[node.id] %>"
+          <%= selectedIds.includes(node.id) ? "checked" : "" %>
+        >
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:<%= categoryColors[node.id] %>"></span>
+        <%= node.name %>
+      </label>
+      <% if (node.children.length > 0) { %>
+        <div style="display:none; margin-left: 1.5em">
+          <%- include('_category_tree_node', { nodes: node.children, selectedIds, categoryColors }) %>
+        </div>
+      <% } %>
+    </li>
+  <% }) %>
+</ul>

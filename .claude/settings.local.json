@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"//wsl.localhost/ubuntu/home/taka/webpro/my-app\" remote -v)",
+      "Bash(git -C /home/taka/webpro/my-app remote -v)",
+      "Bash(git -C /home/taka/webpro/my-app remote add origin https://github.com/MinamideTakaaki/my-app.git)",
+      "Bash(git -C /home/taka/webpro/my-app push -u origin main)",
+      "Bash(git -C \"//wsl.localhost/ubuntu/home/taka/webpro/my-app\" -c safe.directory='*' log --oneline -10)",
+      "Bash(git -C \"//wsl.localhost/ubuntu/home/taka/webpro/my-app\" -c safe.directory='*' ls-tree -r main --name-only)",
+      "Bash(gh repo *)",
+      "Bash(cd \"//wsl.localhost/ubuntu/home/taka/webpro/my-app\" && pwd)",
+      "Read(///wsl.localhost/ubuntu/home/taka/webpro/**)",
+      "Bash(npm install *)",
+      "Bash(rm \"//wsl.localhost/ubuntu/home/taka/webpro/my-app/views/index.ejs\")",
+      "Bash(git -C \"//wsl.localhost/ubuntu/home/taka/webpro/my-app\" -c safe.directory='*' status)",
+      "Bash(git -C \"//wsl.localhost/ubuntu/home/taka/webpro/my-app\" -c safe.directory='*' add index.ts package-lock.json package.json prisma/schema.prisma views/index.ejs views/login.ejs views/signup.ejs views/tasks.ejs)",
+      "Bash(git -C //wsl.localhost/ubuntu/home/taka/webpro/my-app -c safe.directory=* commit -m ' *)",
+      "Bash(rm \"//wsl.localhost/ubuntu/home/taka/webpro/my-app/views/edit_task.ejs\")",
+      "Bash(rm \"//wsl.localhost/ubuntu/home/taka/webpro/my-app/views/_category_checkboxes.ejs\")"
+    ]
+  }
+}
