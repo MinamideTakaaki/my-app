@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><title>タスク管理</title></head>
+<body>
+  <h1>タスク一覧</h1>
+  <ul>
+    <% tasks.forEach(task => { %>
+      <li>
+        <form action="/tasks/<%= task.id %>/toggle" method="post" style="display:inline">
+          <input type="checkbox" onchange="this.form.submit()" <%= task.done ? "checked" : "" %>>
+        </form>
+        <span style="<%= task.done ? 'text-decoration: line-through;' : '' %>"><%= task.title %></span>
+        <form action="/tasks/<%= task.id %>/delete" method="post" style="display:inline">
+          <button type="submit">削除</button>
+        </form>
+      </li>
+    <% }) %>
+  </ul>
+
+  <h2>タスクを追加する</h2>
+  <form action="/tasks" method="post">
+    <input type="text" name="title" placeholder="タスク内容を入力" required>
+    <button type="submit">追加</button>
+  </form>
+
+  <form action="/logout" method="post">
+    <button type="submit">ログアウト</button>
+  </form>
+</body>
+</html>
