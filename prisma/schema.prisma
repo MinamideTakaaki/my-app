@@ -17,14 +17,15 @@ model User {
 }
 
 model Category {
-  id       Int        @id @default(autoincrement())
-  name     String
-  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId   Int
-  tasks    Task[]
-  parent   Category?  @relation("CategoryToParent", fields: [parentId], references: [id], onDelete: Cascade)
-  parentId Int?
-  children Category[] @relation("CategoryToParent")
+  id         Int        @id @default(autoincrement())
+  name       String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     Int
+  tasks      Task[]
+  parent     Category?  @relation("CategoryToParent", fields: [parentId], references: [id], onDelete: Cascade)
+  parentId   Int?
+  children   Category[] @relation("CategoryToParent")
+  showOnHome Boolean    @default(false)
 
   @@unique([userId, parentId, name])
 }

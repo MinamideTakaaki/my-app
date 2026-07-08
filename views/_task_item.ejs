@@ -1,0 +1,77 @@
+<%
+// locals: task, categoryTree, categoryColors
+%>
+<li class="rounded-xl border border-slate-200 p-4 bg-white">
+  <div id="view-<%= task.id %>" class="flex items-start gap-3">
+    <form action="/tasks/<%= task.id %>/toggle" method="post" class="pt-0.5">
+      <input
+        type="checkbox"
+        onchange="this.form.submit()"
+        <%= task.done ? "checked" : "" %>
+        class="w-4 h-4 rounded accent-indigo-600"
+      >
+    </form>
+    <div class="flex-1 min-w-0">
+      <p class="text-sm font-medium text-slate-900 <%= task.done ? 'line-through text-slate-400' : '' %>">
+        <%= task.title %>
+      </p>
+      <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+        <% if (task.dueDate) { %>
+          <span class="text-xs text-slate-500">期限: <%= task.dueDate.toLocaleString("ja-JP") %></span>
+        <% } %>
+        <% task.categories.forEach(category => { %>
+          <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+            <span class="w-2 h-2 rounded-full shrink-0" style="background:<%= categoryColors[category.id] %>"></span>
+            <%= category.name %>
+          </span>
+        <% }) %>
+        <% if (task.recurrenceType === "DAILY") { %>
+          <span class="text-xs text-indigo-600 bg-indigo-50 rounded-full px-2 py-0.5">毎日</span>
+        <% } else if (task.recurrenceType === "WEEKLY") { %>
+          <span class="text-xs text-indigo-600 bg-indigo-50 rounded-full px-2 py-0.5">毎週 <%= task.recurrenceDaysOfWeek.map(d => ["日","月","火","水","木","金","土"][d]).join("・") %></span>
+        <% } else if (task.recurrenceType === "MONTHLY") { %>
+          <span class="text-xs text-indigo-600 bg-indigo-50 rounded-full px-2 py-0.5">毎月<%= task.recurrenceDayOfMonth %>日</span>
+        <% } %>
+      </div>
+    </div>
+    <div class="flex items-center gap-3 shrink-0">
+      <button type="button" onclick="toggleEdit(<%= task.id %>)" class="text-xs text-slate-500 hover:text-indigo-600">編集</button>
+      <form action="/tasks/<%= task.id %>/delete" method="post">
+        <button type="submit" class="text-xs text-slate-500 hover:text-red-600">削除</button>
+      </form>
+    </div>
+  </div>
+
+  <form id="edit-<%= task.id %>" action="/tasks/<%= task.id %>/edit" method="post" style="display:none" class="space-y-3 mt-3">
+    <input
+      type="text"
+      name="title"
+      value="<%= task.title %>"
+      required
+      class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+    >
+    <input
+      type="datetime-local"
+      name="dueDate"
+      value="<%= task.dueDate ? task.dueDate.toISOString().slice(0, 16) : '' %>"
+      class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+    >
+    <%- include('_category_picker', {
+      formId: "edit-" + task.id,
+      categoryTree,
+      categoryColors,
+      selectedIds: task.categories.map(c => c.id),
+      selectedCategories: task.categories,
+    }) %>
+    <%- include('_recurrence_fields', {
+      id: "edit-" + task.id,
+      recurrenceType: task.recurrenceType,
+      recurrenceDaysOfWeek: task.recurrenceDaysOfWeek,
+      recurrenceDayOfMonth: task.recurrenceDayOfMonth,
+    }) %>
+    <div class="flex gap-2">
+      <button type="submit" class="rounded-lg bg-indigo-600 text-white text-sm font-semibold px-4 py-2 hover:bg-indigo-700 transition-colors">保存</button>
+      <button type="button" onclick="toggleEdit(<%= task.id %>)" class="rounded-lg bg-slate-100 text-slate-700 text-sm font-medium px-4 py-2 hover:bg-slate-200 transition-colors">キャンセル</button>
+    </div>
+  </form>
+</li>

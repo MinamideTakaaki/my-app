@@ -6,16 +6,19 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "tsx index.ts"
+    "build:css": "tailwindcss -i ./public/css/input.css -o ./public/css/output.css",
+    "start": "npm run build:css && tsx index.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@tailwindcss/cli": "^4.1.0",
     "@types/bcrypt": "^5.0.2",
     "@types/express-session": "^1.18.0",
     "@types/node": "^26.0.0",
     "prisma": "^7.8.0",
+    "tailwindcss": "^4.1.0",
     "tsx": "^4.22.4"
   },
   "dependencies": {

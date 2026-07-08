@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>設定</title>
+  <link rel="stylesheet" href="/css/output.css">
+</head>
+<body class="min-h-screen bg-slate-50">
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/tasks" class="text-sm text-slate-500 hover:text-slate-700">&larr; タスク一覧</a>
+        <h1 class="text-lg font-bold text-slate-900">設定</h1>
+      </div>
+      <form action="/logout" method="post">
+        <button type="submit" class="text-sm text-slate-500 hover:text-slate-700">ログアウト</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8 space-y-6">
+
+    <!-- Home screen categories -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-1">ホーム画面に表示するカテゴリ</h2>
+      <p class="text-sm text-slate-500 mb-4">選んだカテゴリがホーム画面で横スワイプ可能なパネルとして表示されます。何も選ばなければ全てのタスクが1画面に表示されます。</p>
+      <form action="/settings/home-categories" method="post" class="space-y-2">
+        <% categories.forEach(category => { %>
+          <label class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer">
+            <input
+              type="checkbox"
+              name="categoryIds"
+              value="<%= category.id %>"
+              <%= category.showOnHome ? "checked" : "" %>
+              class="accent-indigo-600"
+            >
+            <%= "　".repeat(category.depth) %><%= category.name %>
+          </label>
+        <% }) %>
+        <button type="submit" class="rounded-lg bg-indigo-600 text-white text-sm font-semibold px-4 py-2 hover:bg-indigo-700 transition-colors">保存</button>
+      </form>
+    </section>
+
+    <!-- KLMS integration -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-base font-semibold text-slate-900 mb-4">KLMS連携</h2>
+      <% if (klmsStatus === "connecting") { %>
+        <p class="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          ブラウザでログインを完了してください…（完了後にページを再読み込みしてください）
+        </p>
+      <% } else if (klmsStatus === "error") { %>
+        <p class="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          連携に失敗しました。もう一度お試しください。
+        </p>
+      <% } %>
+      <% if (klmsConnected) { %>
+        <p class="mb-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 inline-block">連携済みです。</p>
+      <% } %>
+      <div class="flex flex-wrap gap-2">
+        <% if (klmsConnected) { %>
+          <form action="/integrations/klms/sync" method="post">
+            <button type="submit" class="rounded-lg bg-indigo-600 text-white text-sm font-semibold px-4 py-2 hover:bg-indigo-700 transition-colors">課題を同期</button>
+          </form>
+          <form
+            action="/integrations/klms/tasks/delete-all"
+            method="post"
+            onsubmit="return confirm('KLMSから取り込んだ課題タスクを全て削除しますか？')"
+          >
+            <button type="submit" class="rounded-lg bg-slate-100 text-slate-700 text-sm font-medium px-4 py-2 hover:bg-slate-200 transition-colors">同期した課題を一括削除</button>
+          </form>
+        <% } %>
+        <form action="/integrations/klms/connect" method="post">
+          <button type="submit" class="rounded-lg border border-slate-300 text-slate-700 text-sm font-medium px-4 py-2 hover:bg-slate-50 transition-colors">
+            <%= klmsConnected ? "KLMSに再ログイン" : "KLMSと連携する" %>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Danger zone -->
+    <section class="bg-white rounded-2xl shadow-sm border border-red-200 p-6">
+      <h2 class="text-base font-semibold text-red-700 mb-4">アカウント削除</h2>
+      <% if (error) { %>
+        <p class="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2"><%= error %></p>
+      <% } %>
+      <form
+        action="/account/delete"
+        method="post"
+        onsubmit="return confirm('本当にアカウントを削除しますか？タスクも全て削除されます。')"
+        class="flex flex-wrap gap-2"
+      >
+        <input
+          type="password"
+          name="password"
+          placeholder="確認のためパスワードを入力"
+          required
+          class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+        >
+        <button type="submit" class="rounded-lg bg-red-600 text-white text-sm font-semibold px-4 py-2 hover:bg-red-700 transition-colors">アカウントを削除する</button>
+      </form>
+    </section>
+
+  </main>
+</body>
+</html>

@@ -2,22 +2,40 @@
 // locals: id (unique suffix), recurrenceType, recurrenceDaysOfWeek, recurrenceDayOfMonth
 const dayLabels = ["日", "月", "火", "水", "木", "金", "土"];
 %>
-<span class="recurrence-fields" data-id="<%= id %>">
-  <select name="recurrenceType" onchange="updateRecurrenceFields('<%= id %>')">
+<div class="recurrence-fields flex flex-wrap items-center gap-2" data-id="<%= id %>">
+  <select
+    name="recurrenceType"
+    onchange="updateRecurrenceFields('<%= id %>')"
+    class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+  >
     <option value="NONE" <%= recurrenceType === "NONE" ? "selected" : "" %>>繰り返しなし</option>
     <option value="DAILY" <%= recurrenceType === "DAILY" ? "selected" : "" %>>毎日</option>
     <option value="WEEKLY" <%= recurrenceType === "WEEKLY" ? "selected" : "" %>>曜日指定</option>
     <option value="MONTHLY" <%= recurrenceType === "MONTHLY" ? "selected" : "" %>>毎月</option>
   </select>
-  <span class="weekly-days-<%= id %>" style="<%= recurrenceType === "WEEKLY" ? "" : "display:none" %>">
+  <span
+    class="weekly-days-<%= id %> flex flex-wrap gap-2"
+    style="<%= recurrenceType === "WEEKLY" ? "" : "display:none" %>"
+  >
     <% dayLabels.forEach((label, day) => { %>
-      <label>
-        <input type="checkbox" name="recurrenceDaysOfWeek" value="<%= day %>" <%= recurrenceDaysOfWeek.includes(day) ? "checked" : "" %>>
+      <label class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-700 cursor-pointer has-checked:bg-indigo-50 has-checked:border-indigo-400 has-checked:text-indigo-700">
+        <input type="checkbox" name="recurrenceDaysOfWeek" value="<%= day %>" <%= recurrenceDaysOfWeek.includes(day) ? "checked" : "" %> class="accent-indigo-600">
         <%= label %>
       </label>
     <% }) %>
   </span>
-  <span class="monthly-day-<%= id %>" style="<%= recurrenceType === "MONTHLY" ? "" : "display:none" %>">
-    <input type="number" name="recurrenceDayOfMonth" min="1" max="31" placeholder="毎月の日付(1-31)" value="<%= recurrenceDayOfMonth ?? "" %>">
+  <span
+    class="monthly-day-<%= id %>"
+    style="<%= recurrenceType === "MONTHLY" ? "" : "display:none" %>"
+  >
+    <input
+      type="number"
+      name="recurrenceDayOfMonth"
+      min="1"
+      max="31"
+      placeholder="毎月の日付(1-31)"
+      value="<%= recurrenceDayOfMonth ?? "" %>"
+      class="w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+    >
   </span>
-</span>
+</div>

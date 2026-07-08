@@ -22,6 +22,7 @@ const PORT = process.env.PORT || 8888;
 
 app.set("view engine", "ejs");
 app.set("views", "./views");
+app.use(express.static("public"));
 app.use(express.urlencoded({ extended: true }));
 app.use(
   session({
@@ -80,6 +81,25 @@ function buildCategoryTree(categories: { id: number; name: string; parentId: num
   return build(null);
 }
 
+function getSelfAndDescendantIds(categoryId: number, categories: { id: number; parentId: number | null }[]): Set<number> {
+  const byParent = new Map<number | null, number[]>();
+  for (const category of categories) {
+    const siblings = byParent.get(category.parentId) ?? [];
+    siblings.push(category.id);
+    byParent.set(category.parentId, siblings);
+  }
+
+  const ids = new Set<number>([categoryId]);
+  function walk(id: number) {
+    for (const childId of byParent.get(id) ?? []) {
+      ids.add(childId);
+      walk(childId);
+    }
+  }
+  walk(categoryId);
+  return ids;
+}
+
 function buildCategoryColors(categories: { id: number; parentId: number | null }[]): Record<number, string> {
   const byId = new Map(categories.map((category) => [category.id, category]));
 
@@ -125,6 +145,56 @@ function parseCategoryIds(body: express.Request["body"]) {
 }
 
 const klmsStatus = new Map<number, "connecting" | "connected" | "error">();
+
+const OVERDUE_CATEGORY_NAME = "期限切れ";
+
+// Keeps the "期限切れ" tag in sync with each task's actual due date: attach it
+// to undone tasks whose due date has passed, and remove it from tasks that no
+// longer qualify (completed, due date cleared, or pushed into the future).
+async function syncOverdueCategory(userId: number): Promise<void> {
+  const now = new Date();
+
+  const overdueTasks = await prisma.task.findMany({
+    where: { userId, done: false, dueDate: { lt: now }, categories: { none: { name: OVERDUE_CATEGORY_NAME } } },
+    select: { id: true },
+  });
+  const staleTaggedTasks = await prisma.task.findMany({
+    where: {
+      userId,
+      categories: { some: { name: OVERDUE_CATEGORY_NAME, parentId: null } },
+      OR: [{ done: true }, { dueDate: null }, { dueDate: { gte: now } }],
+    },
+    select: { id: true },
+  });
+
+  if (overdueTasks.length === 0 && staleTaggedTasks.length === 0) {
+    return;
+  }
+
+  let overdueCategory = await prisma.category.findFirst({
+    where: { userId, parentId: null, name: OVERDUE_CATEGORY_NAME },
+  });
+  if (!overdueCategory && overdueTasks.length > 0) {
+    overdueCategory = await prisma.category.create({
+      data: { userId, parentId: null, name: OVERDUE_CATEGORY_NAME },
+    });
+  }
+
+  if (overdueCategory) {
+    for (const task of overdueTasks) {
+      await prisma.task.update({
+        where: { id: task.id },
+        data: { categories: { connect: { id: overdueCategory.id } } },
+      });
+    }
+    for (const task of staleTaggedTasks) {
+      await prisma.task.update({
+        where: { id: task.id },
+        data: { categories: { disconnect: { id: overdueCategory.id } } },
+      });
+    }
+  }
+}
 
 app.get("/", (req, res) => {
   res.redirect(req.session.userId ? "/tasks" : "/login");
@@ -177,22 +247,15 @@ app.post("/logout", (req, res) => {
 app.post("/account/delete", requireLogin, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.session.userId } });
   if (!user || !(await bcrypt.compare(req.body.password, user.password))) {
-    const [tasks, categories] = await Promise.all([
-      prisma.task.findMany({
-        where: { userId: req.session.userId },
-        orderBy: { createdAt: "desc" },
-        include: { categories: true },
-      }),
-      prisma.category.findMany({ where: { userId: req.session.userId } }),
-    ]);
-    res.render("tasks", {
-      tasks,
-      categories: sortCategoriesByHierarchy(categories),
-      categoryTree: buildCategoryTree(categories),
-      categoryColors: buildCategoryColors(categories),
+    const categories = await prisma.category.findMany({
+      where: { userId: req.session.userId },
+      orderBy: { name: "asc" },
+    });
+    res.render("settings", {
       error: "パスワードが違います",
       klmsConnected: hasKlmsSession(req.session.userId!),
       klmsStatus: klmsStatus.get(req.session.userId!) ?? null,
+      categories: sortCategoriesByHierarchy(categories),
     });
     return;
   }
@@ -204,6 +267,8 @@ app.post("/account/delete", requireLogin, async (req, res) => {
 });
 
 app.get("/tasks", requireLogin, async (req, res) => {
+  await syncOverdueCategory(req.session.userId!);
+
   const [tasks, categories] = await Promise.all([
     prisma.task.findMany({
       where: { userId: req.session.userId },
@@ -212,15 +277,58 @@ app.get("/tasks", requireLogin, async (req, res) => {
     }),
     prisma.category.findMany({ where: { userId: req.session.userId }, orderBy: { name: "asc" } }),
   ]);
+
+  const homeCategories = categories.filter((c) => c.showOnHome);
+  const categoryColors = buildCategoryColors(categories);
+  const panels = [
+    { id: null, name: "すべて", color: null, tasks },
+    ...homeCategories.map((category) => {
+      const includedIds = getSelfAndDescendantIds(category.id, categories);
+      return {
+        id: category.id,
+        name: category.name,
+        color: categoryColors[category.id],
+        tasks: tasks.filter((task) => task.categories.some((c) => includedIds.has(c.id))),
+      };
+    }),
+  ];
+
   res.render("tasks", {
-    tasks,
+    panels,
     categories: sortCategoriesByHierarchy(categories),
     categoryTree: buildCategoryTree(categories),
-    categoryColors: buildCategoryColors(categories),
+    categoryColors,
+  });
+});
+
+app.get("/settings", requireLogin, async (req, res) => {
+  const categories = await prisma.category.findMany({
+    where: { userId: req.session.userId },
+    orderBy: { name: "asc" },
+  });
+  res.render("settings", {
     error: null,
     klmsConnected: hasKlmsSession(req.session.userId!),
     klmsStatus: klmsStatus.get(req.session.userId!) ?? null,
+    categories: sortCategoriesByHierarchy(categories),
   });
+});
+
+app.post("/settings/home-categories", requireLogin, async (req, res) => {
+  const selectedIds = new Set(parseCategoryIds(req.body));
+  const categories = await prisma.category.findMany({
+    where: { userId: req.session.userId },
+    select: { id: true },
+  });
+  await Promise.all(
+    categories.map((category) =>
+      prisma.category.update({
+        where: { id: category.id },
+        data: { showOnHome: selectedIds.has(category.id) },
+      })
+    )
+  );
+  res.redirect("/settings");
 });
 
 app.post("/integrations/klms/connect", requireLogin, (req, res) => {
@@ -235,30 +343,74 @@ app.post("/integrations/klms/connect", requireLogin, (req, res) => {
       console.error("KLMS連携に失敗しました:", error);
       klmsStatus.set(userId, "error");
     });
-  res.redirect("/tasks");
+  res.redirect("/settings");
 });
 
 app.post("/integrations/klms/sync", requireLogin, async (req, res) => {
   const userId = req.session.userId!;
   if (!hasKlmsSession(userId)) {
-    res.redirect("/tasks");
+    res.redirect("/settings");
     return;
   }
 
   const assignments = await fetchKlmsAssignments(userId);
-  for (const assignment of assignments) {
-    await prisma.task.upsert({
-      where: { userId_klmsId: { userId, klmsId: assignment.klmsId } },
-      update: { title: assignment.title, dueDate: assignment.dueDate },
-      create: {
-        title: assignment.title,
-        dueDate: assignment.dueDate,
-        userId,
-        klmsId: assignment.klmsId,
-      },
-    });
+
+  let schoolCategory = await prisma.category.findFirst({ where: { userId, parentId: null, name: "学校" } });
+  if (!schoolCategory) {
+    schoolCategory = await prisma.category.create({ data: { userId, parentId: null, name: "学校" } });
   }
-  res.redirect("/tasks");
+
+  const courseCategoryIds = new Map<string, number>();
+  async function getCourseCategoryId(courseName: string): Promise<number> {
+    const cached = courseCategoryIds.get(courseName);
+    if (cached) return cached;
+
+    let category = await prisma.category.findFirst({
+      where: { userId, parentId: schoolCategory!.id, name: courseName },
+    });
+    if (!category) {
+      category = await prisma.category.create({
+        data: { userId, parentId: schoolCategory!.id, name: courseName },
+      });
+    }
+    courseCategoryIds.set(courseName, category.id);
+    return category.id;
+  }
+
+  // Category lookups/creations must happen sequentially to avoid racing
+  // duplicate-category creation, but once every course category exists the
+  // task upserts are independent and can run in parallel.
+  const courseNames = [...new Set(assignments.map((a) => a.courseName).filter((name) => name !== null))];
+  for (const courseName of courseNames) {
+    await getCourseCategoryId(courseName);
+  }
+
+  await Promise.all(
+    assignments.map((assignment) => {
+      const categoryIds = assignment.courseName ? [courseCategoryIds.get(assignment.courseName)!] : [];
+      return prisma.task.upsert({
+        where: { userId_klmsId: { userId, klmsId: assignment.klmsId } },
+        update: {
+          title: assignment.title,
+          dueDate: assignment.dueDate,
+          categories: { connect: categoryIds.map((id) => ({ id })) },
+        },
+        create: {
+          title: assignment.title,
+          dueDate: assignment.dueDate,
+          userId,
+          klmsId: assignment.klmsId,
+          categories: { connect: categoryIds.map((id) => ({ id })) },
+        },
+      });
+    })
+  );
+  res.redirect("/settings");
+});
+
+app.post("/integrations/klms/tasks/delete-all", requireLogin, async (req, res) => {
+  await prisma.task.deleteMany({ where: { userId: req.session.userId, klmsId: { not: null } } });
+  res.redirect("/settings");
 });
 
 app.post("/tasks", requireLogin, async (req, res) => {

@@ -1,125 +1,132 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head><meta charset="UTF-8"><title>タスク管理</title></head>
-<body>
-  <h1>タスク一覧</h1>
-  <ul>
-    <% tasks.forEach(task => { %>
-      <li>
-        <div id="view-<%= task.id %>">
-          <form action="/tasks/<%= task.id %>/toggle" method="post" style="display:inline">
-            <input type="checkbox" onchange="this.form.submit()" <%= task.done ? "checked" : "" %>>
-          </form>
-          <span style="<%= task.done ? 'text-decoration: line-through;' : '' %>"><%= task.title %></span>
-          <% if (task.dueDate) { %>
-            <small>期限: <%= task.dueDate.toLocaleString("ja-JP") %></small>
-          <% } %>
-          <% task.categories.forEach(category => { %>
-            <small>
-              <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:<%= categoryColors[category.id] %>"></span>
-              <%= category.name %>
-            </small>
-          <% }) %>
-          <% if (task.recurrenceType === "DAILY") { %>
-            <small>(毎日)</small>
-          <% } else if (task.recurrenceType === "WEEKLY") { %>
-            <small>(毎週 <%= task.recurrenceDaysOfWeek.map(d => ["日","月","火","水","木","金","土"][d]).join("・") %>)</small>
-          <% } else if (task.recurrenceType === "MONTHLY") { %>
-            <small>(毎月<%= task.recurrenceDayOfMonth %>日)</small>
-          <% } %>
-          <button type="button" onclick="toggleEdit(<%= task.id %>)">編集</button>
-          <form action="/tasks/<%= task.id %>/delete" method="post" style="display:inline">
-            <button type="submit">削除</button>
-          </form>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>タスク管理</title>
+  <link rel="stylesheet" href="/css/output.css">
+  <style>
+    .no-scrollbar {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 relative">
+  <div class="max-w-[1600px] mx-auto px-6 pt-6 pb-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Left: category tabs + task carousel -->
+      <div class="lg:col-span-2">
+        <div class="flex items-center justify-between gap-3 mb-4">
+          <div id="category-tabs" class="flex gap-5 overflow-x-auto no-scrollbar min-w-0 border-b border-slate-200">
+            <% panels.forEach((panel, i) => { %>
+              <button
+                type="button"
+                onclick="scrollToPanel(<%= i %>)"
+                data-tab-button
+                class="shrink-0 inline-flex items-center gap-1.5 px-1 pb-2.5 text-sm font-medium border-b-2 -mb-px transition-colors <%= i === 0 ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700' %>"
+              >
+                <% if (panel.color) { %>
+                  <span class="w-2 h-2 rounded-full shrink-0" style="background:<%= panel.color %>"></span>
+                <% } %>
+                <%= panel.name %>
+              </button>
+            <% }) %>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            <a href="/settings" class="text-sm text-slate-500 hover:text-slate-700">設定</a>
+            <form action="/logout" method="post">
+              <button type="submit" class="text-sm text-slate-500 hover:text-slate-700">ログアウト</button>
+            </form>
+          </div>
         </div>
 
-        <form id="edit-<%= task.id %>" action="/tasks/<%= task.id %>/edit" method="post" style="display:none">
-          <input type="text" name="title" value="<%= task.title %>" required>
-          <input
-            type="datetime-local"
-            name="dueDate"
-            value="<%= task.dueDate ? task.dueDate.toISOString().slice(0, 16) : '' %>"
-          >
-          <%- include('_category_picker', {
-            formId: "edit-" + task.id,
-            categoryTree,
-            categoryColors,
-            selectedIds: task.categories.map(c => c.id),
-            selectedCategories: task.categories,
-          }) %>
-          <%- include('_recurrence_fields', {
-            id: "edit-" + task.id,
-            recurrenceType: task.recurrenceType,
-            recurrenceDaysOfWeek: task.recurrenceDaysOfWeek,
-            recurrenceDayOfMonth: task.recurrenceDayOfMonth,
-          }) %>
-          <button type="submit">保存</button>
-          <button type="button" onclick="toggleEdit(<%= task.id %>)">キャンセル</button>
-        </form>
-      </li>
-    <% }) %>
-  </ul>
+        <!-- Embedded, horizontally-scrollable task box: one category per
+             screen-width slide, snapping as you scroll/swipe/drag. -->
+        <div
+          id="task-carousel"
+          class="flex overflow-x-auto no-scrollbar snap-x snap-mandatory rounded-2xl border border-slate-200 bg-white"
+          style="height: calc(100vh - 130px)"
+        >
+          <% panels.forEach((panel, i) => { %>
+            <div class="snap-start shrink-0 w-full h-full overflow-y-auto p-4">
+              <ul class="space-y-2">
+                <% if (panel.tasks.length === 0) { %>
+                  <li class="text-sm text-slate-400 text-center py-8">タスクはありません</li>
+                <% } %>
+                <% panel.tasks.forEach(task => { %>
+                  <%- include('_task_item', { task, categoryTree, categoryColors }) %>
+                <% }) %>
+              </ul>
+            </div>
+          <% }) %>
+        </div>
+      </div>
 
-  <h2>タスクを追加する</h2>
-  <form action="/tasks" method="post">
-    <input type="text" name="title" placeholder="タスク内容を入力" required>
-    <input type="datetime-local" name="dueDate">
-    <%- include('_category_picker', {
-      formId: "add",
-      categoryTree,
-      categoryColors,
-      selectedIds: [],
-      selectedCategories: [],
-    }) %>
-    <%- include('_recurrence_fields', {
-      id: "add",
-      recurrenceType: "NONE",
-      recurrenceDaysOfWeek: [],
-      recurrenceDayOfMonth: null,
-    }) %>
-    <button type="submit">追加</button>
-  </form>
+      <!-- Right: add task / add category, stacked -->
+      <div class="space-y-6">
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+          <h2 class="text-base font-semibold text-slate-900 mb-4">タスクを追加する</h2>
+          <form action="/tasks" method="post" class="space-y-3">
+            <input
+              type="text"
+              name="title"
+              placeholder="タスク内容を入力"
+              required
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+            <input
+              type="datetime-local"
+              name="dueDate"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+            <%- include('_category_picker', {
+              formId: "add",
+              categoryTree,
+              categoryColors,
+              selectedIds: [],
+              selectedCategories: [],
+            }) %>
+            <%- include('_recurrence_fields', {
+              id: "add",
+              recurrenceType: "NONE",
+              recurrenceDaysOfWeek: [],
+              recurrenceDayOfMonth: null,
+            }) %>
+            <button type="submit" class="rounded-lg bg-indigo-600 text-white text-sm font-semibold px-4 py-2 hover:bg-indigo-700 transition-colors">追加</button>
+          </form>
+        </section>
 
-  <h2>カテゴリを追加する</h2>
-  <form action="/categories" method="post">
-    <input type="text" name="name" placeholder="カテゴリ名" required>
-    <select name="parentId">
-      <option value="">親カテゴリなし</option>
-      <% categories.forEach(category => { %>
-        <option value="<%= category.id %>"><%= "　".repeat(category.depth) %><%= category.name %></option>
-      <% }) %>
-    </select>
-    <button type="submit">追加</button>
-  </form>
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+          <h2 class="text-base font-semibold text-slate-900 mb-4">カテゴリを追加する</h2>
+          <form action="/categories" method="post" class="space-y-3">
+            <input
+              type="text"
+              name="name"
+              placeholder="カテゴリ名"
+              required
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+            <select
+              name="parentId"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">親カテゴリなし</option>
+              <% categories.forEach(category => { %>
+                <option value="<%= category.id %>"><%= "　".repeat(category.depth) %><%= category.name %></option>
+              <% }) %>
+            </select>
+            <button type="submit" class="rounded-lg bg-indigo-600 text-white text-sm font-semibold px-4 py-2 hover:bg-indigo-700 transition-colors">追加</button>
+          </form>
+        </section>
+      </div>
 
-  <h2>KLMS連携</h2>
-  <% if (klmsStatus === "connecting") { %>
-    <p>ブラウザでログインを完了してください…（完了後にページを再読み込みしてください）</p>
-  <% } else if (klmsStatus === "error") { %>
-    <p style="color:red">連携に失敗しました。もう一度お試しください。</p>
-  <% } %>
-  <% if (klmsConnected) { %>
-    <p>連携済みです。</p>
-    <form action="/integrations/klms/sync" method="post" style="display:inline">
-      <button type="submit">課題を同期</button>
-    </form>
-  <% } %>
-  <form action="/integrations/klms/connect" method="post" style="display:inline">
-    <button type="submit"><%= klmsConnected ? "KLMSに再ログイン" : "KLMSと連携する" %></button>
-  </form>
-
-  <form action="/logout" method="post">
-    <button type="submit">ログアウト</button>
-  </form>
-
-  <h2>アカウント削除</h2>
-  <% if (error) { %>
-    <p style="color:red"><%= error %></p>
-  <% } %>
-  <form action="/account/delete" method="post" onsubmit="return confirm('本当にアカウントを削除しますか？タスクも全て削除されます。')">
-    <input type="password" name="password" placeholder="確認のためパスワードを入力" required>
-    <button type="submit">アカウントを削除する</button>
-  </form>
+    </div>
+  </div>
 
   <script>
     function toggleEdit(id) {
@@ -143,7 +150,7 @@
       const chips = checked.map((input) => {
         const name = input.parentElement.textContent.trim();
         const color = input.dataset.color;
-        return `<small><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color}"></span> ${name}</small>`;
+        return `<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700"><span class="w-2 h-2 rounded-full shrink-0" style="background:${color}"></span>${name}</span>`;
       });
       document.getElementById("cat-count-" + formId).textContent = checked.length;
       document.getElementById("cat-chips-" + formId).innerHTML = chips.join("");
@@ -156,6 +163,32 @@
       container.querySelector(".weekly-days-" + id).style.display = type === "WEEKLY" ? "" : "none";
       container.querySelector(".monthly-day-" + id).style.display = type === "MONTHLY" ? "" : "none";
     }
+
+    const taskCarousel = document.getElementById("task-carousel");
+    const tabButtons = [...document.querySelectorAll("[data-tab-button]")];
+
+    function setActiveTab(index) {
+      tabButtons.forEach((btn, i) => {
+        const isActive = i === index;
+        btn.classList.toggle("border-indigo-600", isActive);
+        btn.classList.toggle("text-indigo-600", isActive);
+        btn.classList.toggle("border-transparent", !isActive);
+        btn.classList.toggle("text-slate-500", !isActive);
+      });
+    }
+
+    function scrollToPanel(index) {
+      taskCarousel.scrollTo({ left: index * taskCarousel.clientWidth, behavior: "smooth" });
+      setActiveTab(index);
+    }
+
+    // Clicking a tab jumps the carousel; dragging/swiping/scrolling the
+    // carousel itself (trackpad, touch, or a normal mouse wheel) updates
+    // which tab is highlighted.
+    taskCarousel.addEventListener("scroll", () => {
+      const index = Math.round(taskCarousel.scrollLeft / taskCarousel.clientWidth);
+      setActiveTab(index);
+    });
   </script>
 </body>
 </html>

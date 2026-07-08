@@ -1,21 +1,38 @@
 <%
 // locals: formId, categoryTree, selectedIds (number[]), selectedCategories ({id, name}[]), categoryColors (Record<number, string>)
 %>
-<span class="category-picker">
-  <button type="button" onclick="document.getElementById('cat-dialog-<%= formId %>').showModal()">
+<div class="category-picker flex flex-wrap items-center gap-2">
+  <button
+    type="button"
+    onclick="document.getElementById('cat-dialog-<%= formId %>').showModal()"
+    class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+  >
     カテゴリを選択 (<span id="cat-count-<%= formId %>"><%= selectedCategories.length %></span>)
   </button>
-  <span id="cat-chips-<%= formId %>">
+  <span id="cat-chips-<%= formId %>" class="flex flex-wrap gap-1.5">
     <% selectedCategories.forEach(category => { %>
-      <small>
-        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:<%= categoryColors[category.id] %>"></span>
+      <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">
+        <span class="w-2 h-2 rounded-full shrink-0" style="background:<%= categoryColors[category.id] %>"></span>
         <%= category.name %>
-      </small>
+      </span>
     <% }) %>
   </span>
 
-  <dialog id="cat-dialog-<%= formId %>">
-    <%- include('_category_tree_node', { nodes: categoryTree, selectedIds, categoryColors }) %>
-    <button type="button" onclick="closeCategoryPicker('<%= formId %>')">決定</button>
+  <dialog
+    id="cat-dialog-<%= formId %>"
+    class="rounded-2xl shadow-xl border border-slate-200 p-0 w-full max-w-sm backdrop:bg-slate-900/40"
+  >
+    <div class="p-5 max-h-[60vh] overflow-y-auto">
+      <%- include('_category_tree_node', { nodes: categoryTree, selectedIds, categoryColors }) %>
+    </div>
+    <div class="border-t border-slate-200 p-3 flex justify-end">
+      <button
+        type="button"
+        onclick="closeCategoryPicker('<%= formId %>')"
+        class="rounded-lg bg-indigo-600 text-white text-sm font-semibold px-4 py-2 hover:bg-indigo-700 transition-colors"
+      >
+        決定
+      </button>
+    </div>
   </dialog>
-</span>
+</div>

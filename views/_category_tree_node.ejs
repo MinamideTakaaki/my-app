@@ -1,25 +1,32 @@
 <%
 // locals: nodes (CategoryNode[]), selectedIds (number[]), categoryColors (Record<number, string>)
 %>
-<ul style="list-style:none">
+<ul class="space-y-1">
   <% nodes.forEach(node => { %>
-    <li>
+    <li class="flex flex-wrap items-center gap-1">
       <% if (node.children.length > 0) { %>
-        <button type="button" onclick="toggleCategoryChildren(this)">▶</button>
+        <button
+          type="button"
+          onclick="toggleCategoryChildren(this)"
+          class="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-slate-600 shrink-0"
+        >▶</button>
+      <% } else { %>
+        <span class="w-5 shrink-0"></span>
       <% } %>
-      <label>
+      <label class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer w-full">
         <input
           type="checkbox"
           name="categoryIds"
           value="<%= node.id %>"
           data-color="<%= categoryColors[node.id] %>"
           <%= selectedIds.includes(node.id) ? "checked" : "" %>
+          class="accent-indigo-600"
         >
-        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:<%= categoryColors[node.id] %>"></span>
-        <%= node.name %>
+        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:<%= categoryColors[node.id] %>"></span>
+        <span><%= node.name %></span>
       </label>
       <% if (node.children.length > 0) { %>
-        <div style="display:none; margin-left: 1.5em">
+        <div style="display:none" class="ml-6 mt-1 basis-full">
           <%- include('_category_tree_node', { nodes: node.children, selectedIds, categoryColors }) %>
         </div>
       <% } %>
