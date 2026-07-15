@@ -144,7 +144,7 @@ function parseCategoryIds(body: express.Request["body"]) {
   return ([] as string[]).concat(body.categoryIds ?? []).map(Number);
 }
 
-const klmsStatus = new Map<number, "connecting" | "connected" | "error">();
+const klmsStatus = new Map<number, "connecting" | "connected" | "error" | "unavailable">();
 
 const OVERDUE_CATEGORY_NAME = "期限切れ";
 
@@ -341,7 +341,12 @@ app.post("/integrations/klms/connect", requireLogin, (req, res) => {
     })
     .catch((error) => {
       console.error("KLMS連携に失敗しました:", error);
-      klmsStatus.set(userId, "error");
+      // No visible browser is available in this environment (e.g. a
+      // headless server like Render) - Playwright can't launch Chrome there.
+      const message = String(error?.message ?? error);
+      const isUnsupportedEnvironment =
+        message.includes("Executable doesn't exist") || message.includes("Missing X server");
+      klmsStatus.set(userId, isUnsupportedEnvironment ? "unavailable" : "error");
     });
   res.redirect("/settings");
 });

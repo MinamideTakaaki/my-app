@@ -53,6 +53,10 @@
         <p class="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
           連携に失敗しました。もう一度お試しください。
         </p>
+      <% } else if (klmsStatus === "unavailable") { %>
+        <p class="mb-4 text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+          この環境ではKLMS連携をご利用いただけません。ブラウザを操作できるお手元のPCでこのアプリを起動して、KLMS連携をお試しください。
+        </p>
       <% } %>
       <% if (klmsConnected) { %>
         <p class="mb-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 inline-block">連携済みです。</p>
